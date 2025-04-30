@@ -1,0 +1,14 @@
+{
+  "name": "dados-esp32",
+  "version": "1.0.0",
+  "description": "API para buscar dados através do uid da tag nfc lida pelo esp32, do banco de dados",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon",
+    "deploy": "git add . && git commit -m 'Atualizando o projeto' && git push origin main"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
