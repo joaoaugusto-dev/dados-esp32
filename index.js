@@ -8,7 +8,6 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configuração do banco de dados
 console.log('Senha carregada:', process.env.DB_PASS ? '[OK]' : '[FALHOU]');
 const caCertPath = path.join(__dirname, 'ca.pem');
 const caCert = fs.readFileSync(caCertPath).toString();
@@ -46,13 +45,21 @@ const User = sequelize.define('usuarios', {
   nome: {
     type: DataTypes.STRING(100),
     allowNull: false
+  },
+  temp_preferida: {
+    type: DataTypes.FLOAT,
+    allowNull: false
+  },
+  lumi_preferida: {
+    type: DataTypes.INTEGER,
+    allowNull: false
   }
 }, {
   timestamps: false,
   freezeTableName: true
 });
 
-// Rota de consulta para o ESP32
+// Rota de consulta
 app.get('/consulta', async (req, res) => {
   const { uid } = req.query;
   
@@ -61,21 +68,23 @@ app.get('/consulta', async (req, res) => {
   }
 
   try {
-    // Consulta o usuário com o UID fornecido
     const user = await User.findOne({ where: { uid } });
 
     if (!user) {
       return res.status(404).send('Usuário não encontrado');
     }
 
-    res.json({ nome: user.nome }); // Retorna o nome do usuário
+    res.json({
+      nome: user.nome,
+      temp_preferida: user.temp_preferida,
+      lumi_preferida: user.lumi_preferida
+    });
   } catch (error) {
     console.error('Erro ao consultar usuário:', error);
     res.status(500).send('Erro ao consultar o banco de dados');
   }
 });
 
-// Testando a conexão com o banco de dados
 async function testConnection() {
   try {
     await sequelize.authenticate();
@@ -87,7 +96,6 @@ async function testConnection() {
 
 testConnection();
 
-// Iniciando o servidor
 app.listen(port, () => {
   console.log(`API rodando em http://localhost:${port}`);
 });
