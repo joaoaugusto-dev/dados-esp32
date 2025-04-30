@@ -1,34 +1,93 @@
-require("dotenv").config();
-const express = require("express");
-const mysql = require("mysql2");
-const cors = require("cors");
+require('dotenv').config();
+const express = require('express');
+const { Sequelize, DataTypes } = require('sequelize');
+const fs = require('fs');
+const path = require('path');
+const cors = require('cors');
 
 const app = express();
-app.use(cors());
+const port = process.env.PORT || 3000;
 
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME
+// Configuração do banco de dados
+console.log('Senha carregada:', process.env.DB_PASS ? '[OK]' : '[FALHOU]');
+const caCertPath = path.join(__dirname, 'ca.pem');
+const caCert = fs.readFileSync(caCertPath).toString();
+
+const sequelize = new Sequelize(
+  process.env.DB_NAME,
+  process.env.DB_USER,
+  process.env.DB_PASS,
+  {
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    dialect: 'mysql',
+    dialectOptions: {
+      ssl: {
+        rejectUnauthorized: true,
+        ca: caCert,
+      }
+    },
+    logging: true,
+  }
+);
+
+// Modelo de Usuário
+const User = sequelize.define('usuarios', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
+  },
+  uid: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    unique: true
+  },
+  nome: {
+    type: DataTypes.STRING(100),
+    allowNull: false
+  }
+}, {
+  timestamps: false,
+  freezeTableName: true
 });
 
-app.get("/consulta", (req, res) => {
-  const uid = req.query.uid;
-  if (!uid) return res.status(400).json({ erro: "UID ausente" });
+// Rota de consulta para o ESP32
+app.get('/consulta', async (req, res) => {
+  const { uid } = req.query;
+  
+  if (!uid) {
+    return res.status(400).send('UID é necessário');
+  }
 
-  db.query("SELECT nome FROM usuarios WHERE uid = ?", [uid], (err, results) => {
-    if (err) return res.status(500).json({ erro: "Erro no banco de dados" });
+  try {
+    // Consulta o usuário com o UID fornecido
+    const user = await User.findOne({ where: { uid } });
 
-    if (results.length > 0) {
-      res.json({ nome: results[0].nome });
-    } else {
-      res.json({ nome: "Desconhecido" });
+    if (!user) {
+      return res.status(404).send('Usuário não encontrado');
     }
-  });
+
+    res.json({ nome: user.nome }); // Retorna o nome do usuário
+  } catch (error) {
+    console.error('Erro ao consultar usuário:', error);
+    res.status(500).send('Erro ao consultar o banco de dados');
+  }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`API rodando em http://localhost:${PORT}`);
+// Testando a conexão com o banco de dados
+async function testConnection() {
+  try {
+    await sequelize.authenticate();
+    console.log('✅ Conectado ao MySQL com Sequelize!');
+  } catch (error) {
+    console.error('❌ Erro ao conectar:', error);
+  }
+}
+
+testConnection();
+
+// Iniciando o servidor
+app.listen(port, () => {
+  console.log(`API rodando em http://localhost:${port}`);
 });
